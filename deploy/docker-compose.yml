@@ -6,16 +6,24 @@ services:
       POSTGRES_DB: shangtugongfang
       POSTGRES_USER: pscly
       POSTGRES_PASSWORD: yzb0uLPnTzOKqfN5M9iwe43p1eWuzzqg29XG
-    ports:
-      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pscly -d shangtugongfang"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
     volumes:
       - redis_data:/data
 
@@ -29,8 +37,16 @@ services:
       DATABASE_URL: postgresql+asyncpg://pscly:yzb0uLPnTzOKqfN5M9iwe43p1eWuzzqg29XG@postgres:5432/shangtugongfang
       REDIS_URL: redis://redis:6379/0
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     command: sh -c "uv run python -m app.cli init-db && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   worker-default:
@@ -43,7 +59,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://pscly:yzb0uLPnTzOKqfN5M9iwe43p1eWuzzqg29XG@postgres:5432/shangtugongfang
       REDIS_URL: redis://redis:6379/0
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     command: uv run celery -A app.workers.celery_app.celery_app worker -Q q_default -l info
 
   worker-video:
@@ -56,7 +73,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://pscly:yzb0uLPnTzOKqfN5M9iwe43p1eWuzzqg29XG@postgres:5432/shangtugongfang
       REDIS_URL: redis://redis:6379/0
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     command: uv run celery -A app.workers.celery_app.celery_app worker -Q q_video -l info
 
   frontend:
@@ -64,14 +82,17 @@ services:
       context: ../frontend
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
   nginx:
     image: nginx:1.29-alpine
     restart: unless-stopped
     depends_on:
-      - api
-      - frontend
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_started
     ports:
       - "80:80"
     volumes:

@@ -137,6 +137,13 @@ docker compose up -d --build
 sh deploy/scripts/deploy.sh
 ```
 
+当前 Compose 编排默认只对外暴露 `80` 端口：
+
+- `nginx` 对外提供站点与 `/api` 反向代理。
+- `postgres` 与 `redis` 仅在 Docker 内部网络使用，不绑定宿主机端口，避免与服务器上已有数据库或缓存实例冲突。
+- `api` 容器启动时会先执行 `uv run python -m app.cli init-db`，该命令仍然读取项目根目录 `.env` 中的 `ADMIN_USERNAME`、`ADMIN_PASSWORD`、`ADMIN_EMAIL`，只在首次缺失该管理员时创建系统管理员。
+- Compose 已为 `postgres`、`redis`、`api` 配置健康检查，`worker` 与 `nginx` 会在依赖服务健康后再启动。
+
 ### 4. 验证
 
 - `http://服务器IP/api/health`
