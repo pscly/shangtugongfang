@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: shangtugongfang
+      POSTGRES_USER: pscly
+      POSTGRES_PASSWORD: yzb0uLPnTzOKqfN5M9iwe43p1eWuzzqg29XG
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  api:
+    build:
+      context: ../backend
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://pscly:yzb0uLPnTzOKqfN5M9iwe43p1eWuzzqg29XG@postgres:5432/shangtugongfang
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+    command: sh -c "uv run python -m app.cli init-db && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  worker-default:
+    build:
+      context: ../backend
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://pscly:yzb0uLPnTzOKqfN5M9iwe43p1eWuzzqg29XG@postgres:5432/shangtugongfang
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - api
+    command: uv run celery -A app.workers.celery_app.celery_app worker -Q q_default -l info
+
+  worker-video:
+    build:
+      context: ../backend
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://pscly:yzb0uLPnTzOKqfN5M9iwe43p1eWuzzqg29XG@postgres:5432/shangtugongfang
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - api
+    command: uv run celery -A app.workers.celery_app.celery_app worker -Q q_video -l info
+
+  frontend:
+    build:
+      context: ../frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  nginx:
+    image: nginx:1.29-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+      - frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  postgres_data:
+  redis_data:
