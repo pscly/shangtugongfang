@@ -13,4 +13,7 @@ DATABASE_URL=postgresql+asyncpg://pscly:yzb0uLPnTzOKqfN5M9iwe43p1eWuzzqg29XG@192
 你可以通过 ssh root@192.168.3.5 -p 22 去虚拟机上部署
 
 
- 
+## 特别注意
+
+用不考虑按阶段和MVP，永远是弄的完整完善
+
