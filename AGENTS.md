@@ -17,3 +17,4 @@ DATABASE_URL=postgresql+asyncpg://pscly:yzb0uLPnTzOKqfN5M9iwe43p1eWuzzqg29XG@192
 
 用不考虑按阶段和MVP，永远是弄的完整完善
 
+前端开发最好是用 gsap 这个skill 来辅助开发
